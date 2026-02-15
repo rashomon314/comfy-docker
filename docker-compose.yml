@@ -1,8 +1,35 @@
 services:
+  comfyui-perms:
+    image: alpine:3.20
+    container_name: comfyui-perms
+    user: "0:0"
+    restart: "no"
+    volumes:
+      - type: bind
+        source: ./run
+        target: /fix/run
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ./basedir
+        target: /fix/basedir
+        bind:
+          create_host_path: true
+    command: >
+      sh -lc "
+        echo '[perms] fixing ownership/permissions...';
+        chown -R 1000:1000 /fix/run /fix/basedir || true;
+        chmod -R u+rwX /fix/run /fix/basedir || true;
+        echo '[perms] done.'
+      "
+
   comfyui:
     image: mmartial/comfyui-nvidia-docker:latest
-    container_name: comfyui
+    container_name: comfyui-docker
     restart: unless-stopped
+    depends_on:
+      comfyui-perms:
+        condition: service_completed_successfully
 
     ports:
       - "127.0.0.1:8188:8188"
@@ -17,7 +44,16 @@ services:
       WANTED_GID: "1000"
       BASE_DIRECTORY: "/basedir"
       SECURITY_LEVEL: "normal"
+      FORCE_CHOWN: "yes"
 
     volumes:
-      - ./run:/comfy/mnt
-      - ./basedir:/basedir
+      - type: bind
+        source: ./run
+        target: /comfy/mnt
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ./basedir
+        target: /basedir
+        bind:
+          create_host_path: true
